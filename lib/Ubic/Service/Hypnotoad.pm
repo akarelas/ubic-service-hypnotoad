@@ -1,4 +1,5 @@
 package Ubic::Service::Hypnotoad;
+# ABSTRACT: Ubic service module for Mojolicious Hypnotoad
 
 use strict;
 use warnings;
