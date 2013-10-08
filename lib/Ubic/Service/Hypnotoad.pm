@@ -81,8 +81,9 @@ sub do_custom_command {
 	my ($self, $command) = @_;
 
 	if ($command eq 'deploy') {
-		my $pid = $self->_read_pid	or return;
-		kill "USR2", $pid;
+		my $pid = $self->_read_pid	or return 'not running';
+		my $ret = kill "USR2", $pid;
+		return $ret ? 'running' : 'not running';
 	} else {
 		die "Unknown command '$command'"; # should never happen
 	}
