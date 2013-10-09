@@ -8,6 +8,7 @@ use parent qw(Ubic::Service::Skeleton);
 
 use Ubic::Result qw(result);
 use File::Basename;
+use Time::HiRes qw(time);
 
 
 sub new {
@@ -28,6 +29,8 @@ sub new {
 		pid_file => $pid_file,
 		app => $app,
 		bin => $bin,
+		start_time => undef,
+		stop_time => undef,
 	}, $class;
 }
 
@@ -45,7 +48,15 @@ sub _read_pid {
 sub status_impl {
 	my $self = shift;
 
+	if ($self->{'start_time'} and $self->{'start_time'} + 1 > time) {
+		return result('starting');
+	}
+
 	my $pid = $self->_read_pid	or return result('not running');
+
+	if ($self->{'stop_time'} and $self->{'stop_time'} + 1 > time) {
+		return result('stopping');
+	}
 
 	my ($i, $running, $old_pid) = (0);
 	do {
@@ -64,6 +75,8 @@ sub start_impl {
 	my $self = shift;
 
 	system($self->{'bin'}, $self->{'app'});
+	$self->{'start_time'} = time;
+	$self->{'stop_time'} = undef;
 
 	return result('starting');
 }
@@ -72,6 +85,8 @@ sub stop_impl {
 	my $self = shift;
 
 	system($self->{'bin'}, '-s', $self->{'app'});
+	$self->{'stop_time'} = time;
+	$self->{'start_time'} = undef;
 
 	return result('stopping');
 }
