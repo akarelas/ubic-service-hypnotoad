@@ -14,21 +14,19 @@ use Time::HiRes qw(time);
 sub new {
 	my ($class, $opt) = @_;
 
-	my %opt = %$opt;
-	my $bin = $opt{'bin'} // 'hypnotoad';
+	my $bin = $opt->{'bin'} // 'hypnotoad';
 	length $bin	or die "missing 'bin' parameter in new";
-	my $app = $opt{'app'} // '';
+	my $app = $opt->{'app'} // '';
 	length $app	or die "missing 'app' parameter in new";
-	my $pid_file = $opt{'pid_file'} // dirname($app).'/hypnotoad.pid';
+	my $pid_file = $opt->{'pid_file'} // dirname($app).'/hypnotoad.pid';
 	length $pid_file	or die "missing 'pid_file' parameter in new";
 
-	if (my $env = $opt{'env'}) {
-		%ENV = (%ENV, %$env);
-	}
+	my %env = %{ $opt->{'env'} // {} };
 
 	return bless {
 		bin => $bin,
 		app => $app,
+		env => \%env,
 		pid_file => $pid_file,
 		start_time => undef,
 		stop_time => undef,
@@ -81,6 +79,7 @@ sub status_impl {
 sub start_impl {
 	my $self = shift;
 
+	local %ENV = (%ENV, %{ $self->{'env'} // {} });
 	system($self->{'bin'}, $self->{'app'});
 	$self->{'start_time'} = time;
 	$self->{'stop_time'} = undef;
@@ -91,6 +90,7 @@ sub start_impl {
 sub stop_impl {
 	my $self = shift;
 
+	local %ENV = (%ENV, %{ $self->{'env'} // {} });
 	system($self->{'bin'}, '-s', $self->{'app'});
 	$self->{'stop_time'} = time;
 	$self->{'start_time'} = undef;
