@@ -91,18 +91,12 @@ sub stop_impl {
 	return result('stopping');
 }
 
-sub custom_commands { qw/ deploy / };
+sub reload {
+	my $self = shift;
 
-sub do_custom_command {
-	my ($self, $command) = @_;
-
-	if ($command eq 'deploy') {
-		my $pid = $self->_read_pid	or return 'not running';
-		my $ret = kill "USR2", $pid;
-		return $ret ? 'running' : 'not running';
-	} else {
-		die "Unknown command '$command'"; # should never happen
-	}
+	my $pid = $self->_read_pid	or return 'not running';
+	my $ret = kill "USR2", $pid;
+	return $ret ? 'reloaded' : 'not running';
 }
 
 
