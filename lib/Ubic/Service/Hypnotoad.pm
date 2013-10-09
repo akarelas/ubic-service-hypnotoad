@@ -12,8 +12,9 @@ use Time::HiRes qw(time);
 
 
 sub new {
-	my ($class, %opt) = @_;
+	my ($class, $opt) = @_;
 
+	my %opt = %$opt;
 	my $bin = $opt{'bin'} // 'hypnotoad';
 	length $bin	or die "missing 'bin' parameter in new";
 	my $app = $opt{'app'} // '';
