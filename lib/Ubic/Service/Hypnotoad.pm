@@ -26,9 +26,9 @@ sub new {
 	}
 
 	return bless {
-		pid_file => $pid_file,
-		app => $app,
 		bin => $bin,
+		app => $app,
+		pid_file => $pid_file,
 		start_time => undef,
 		stop_time => undef,
 	}, $class;
@@ -48,14 +48,20 @@ sub _read_pid {
 sub status_impl {
 	my $self = shift;
 
-	if ($self->{'start_time'} and $self->{'start_time'} + 1 > time) {
-		return result('starting');
+	my $pid = $self->_read_pid;
+
+	if ($self->{'start_time'} and $self->{'start_time'} + 5 > time) {
+		return result('broken')		if ! $pid;
+	}
+	$self->{'start_time'} = undef;
+
+	if (! $pid) {
+		$self->{'stop_time'} = undef;
+		return result('not running');
 	}
 
-	my $pid = $self->_read_pid	or return result('not running');
-
-	if ($self->{'stop_time'} and $self->{'stop_time'} + 1 > time) {
-		return result('stopping');
+	if ($self->{'stop_time'} and $self->{'stop_time'} + 5 > time) {
+		return result('broken');
 	}
 
 	my ($i, $running, $old_pid) = (0);
@@ -97,6 +103,19 @@ sub reload {
 	my $pid = $self->_read_pid	or return 'not running';
 	my $ret = kill "USR2", $pid;
 	return $ret ? 'reloaded' : 'not running';
+}
+
+sub timeout_options {
+	return {
+		start => {
+			step => 0.1,
+			trials => 10,
+		},
+		stop => {
+			step => 0.1,
+			trials => 10,
+		},
+	};
 }
 
 
