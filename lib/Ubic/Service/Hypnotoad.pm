@@ -7,6 +7,7 @@ use warnings;
 use parent qw(Ubic::Service::Skeleton);
 
 use Ubic::Result qw(result);
+use File::Basename;
 
 
 sub new {
@@ -16,7 +17,7 @@ sub new {
 	length $bin	or die "missing 'bin' parameter in new";
 	my $app = $opt{'app'} // '';
 	length $app	or die "missing 'app' parameter in new";
-	my $pid_file = $opt{'pid_file'} // '';
+	my $pid_file = $opt{'pid_file'} // dirname($app).'/hypnotoad.pid';
 	length $pid_file	or die "missing 'pid_file' parameter in new";
 
 	if (my $env = $opt{'env'}) {
