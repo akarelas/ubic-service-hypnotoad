@@ -9,6 +9,45 @@ use parent qw(Ubic::Service::Skeleton);
 use Ubic::Result qw(result);
 use File::Basename;
 use Time::HiRes qw(time);
+use Capture::Tiny qw(:all);
+
+
+=head1 SYNOPSIS
+
+    use Ubic::Service::Hypnotoad;
+    return Ubic::Service::Hypnotoad->new({
+        bin => '/usr/bin/hypnotoad', # optional, defaults to 'hypnotoad'
+        app => '/home/www/mysite.app',
+        pid_file => '/var/log/mysite.pid', # optional, defaults to a hypnotoad.pid file lying next to "app"
+        env => { # optional environment variables
+            MOJO_FLAG_A => 1,
+            MOJO_CONFIG => '...',
+        },
+    });
+
+=head1 DESCRIPTION
+
+This service is a common ubic wrap for launching your applications with Hypnotoad.
+
+=head1 ACTIONS
+
+=head2 status
+
+Get status of service.
+
+=head2 start
+
+Start service.
+
+=head2 stop
+
+Stop service
+
+=head2 reload
+
+Send a USR2 signal to the process, to have it do an "automatic hot deployment".
+
+=cut
 
 
 sub new {
@@ -79,7 +118,7 @@ sub status_impl {
 sub start_impl {
 	my $self = shift;
 
-	local %ENV = (%ENV, %{ $self->{'env'} // {} });
+	local %ENV = (%ENV, %{ $self->{'env'} });
 	system($self->{'bin'}, $self->{'app'});
 	$self->{'start_time'} = time;
 	$self->{'stop_time'} = undef;
@@ -90,8 +129,11 @@ sub start_impl {
 sub stop_impl {
 	my $self = shift;
 
-	local %ENV = (%ENV, %{ $self->{'env'} // {} });
-	system($self->{'bin'}, '-s', $self->{'app'});
+	local %ENV = (%ENV, %{ $self->{'env'} });
+	my (undef, $stderr) = capture {
+		system($self->{'bin'}, '-s', $self->{'app'});
+	};
+	print $stderr	if length $stderr;
 	$self->{'stop_time'} = time;
 	$self->{'start_time'} = undef;
 
@@ -118,6 +160,17 @@ sub timeout_options {
 		},
 	};
 }
+
+=head1 BUGS
+
+If you have a Github account, report your issues at
+L<https://github.com/akarelas/ubic-service-hypnotoad/issues>.
+I will be notified, and then you'll automatically be notified of progress on
+your bug as I make changes.
+
+=cut
+
+
 
 
 1;

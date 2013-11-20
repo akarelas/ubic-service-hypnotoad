@@ -1,5 +1,9 @@
 Revision history for Ubic-Service-Hypnotoad
 
+0.1     2013-11-20
+        - Suppressed extra unwanted output in STDOUT, during 'stop'
+        - Wrote documenatation
+
 0.002   2013-10-10
         First usable version
 
