@@ -16,7 +16,7 @@ use Capture::Tiny qw(:all);
 
     use Ubic::Service::Hypnotoad;
     return Ubic::Service::Hypnotoad->new({
-        bin => '/usr/bin/hypnotoad', # optional, defaults to 'hypnotoad'
+        bin => '/usr/bin/hypnotoad', # or 'carton exec hypnotoad', optional, defaults to 'hypnotoad'
         app => '/home/www/mysite.app',
         pid_file => '/var/log/mysite.pid', # optional, defaults to a hypnotoad.pid file lying next to "app"
         env => { # optional environment variables
@@ -53,8 +53,8 @@ Send a USR2 signal to the process, to have it do an "automatic hot deployment".
 sub new {
 	my ($class, $opt) = @_;
 
-	my $bin = $opt->{'bin'} // 'hypnotoad';
-	length $bin	or die "missing 'bin' parameter in new";
+	my $bin = [split /\s+/, ($opt->{'bin'} // 'hypnotoad')];
+	@$bin	or die "missing 'bin' parameter in new";
 	my $app = $opt->{'app'} // '';
 	length $app	or die "missing 'app' parameter in new";
 	my $pid_file = $opt->{'pid_file'} // dirname($app).'/hypnotoad.pid';
@@ -89,7 +89,7 @@ sub status_impl {
 	my $pid = $self->_read_pid;
 
 	if ($self->{'start_time'} and $self->{'start_time'} + 5 > time) {
-		return result('broken')		if ! $pid;
+	b	return result('broken')		if ! $pid;
 	}
 	$self->{'start_time'} = undef;
 
@@ -119,7 +119,7 @@ sub start_impl {
 	my $self = shift;
 
 	local %ENV = (%ENV, %{ $self->{'env'} });
-	system($self->{'bin'}, $self->{'app'});
+	system(@{$self->{'bin'}}, $self->{'app'});
 	$self->{'start_time'} = time;
 	$self->{'stop_time'} = undef;
 
@@ -131,7 +131,7 @@ sub stop_impl {
 
 	local %ENV = (%ENV, %{ $self->{'env'} });
 	my (undef, $stderr) = capture {
-		system($self->{'bin'}, '-s', $self->{'app'});
+		system(@{$self->{'bin'}}, '-s', $self->{'app'});
 	};
 	print $stderr	if length $stderr;
 	$self->{'stop_time'} = time;
