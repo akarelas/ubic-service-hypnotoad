@@ -89,7 +89,7 @@ sub status_impl {
 	my $pid = $self->_read_pid;
 
 	if ($self->{'start_time'} and $self->{'start_time'} + 5 > time) {
-	b	return result('broken')		if ! $pid;
+		return result('broken')		if ! $pid;
 	}
 	$self->{'start_time'} = undef;
 
