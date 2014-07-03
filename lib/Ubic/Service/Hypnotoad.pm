@@ -16,6 +16,7 @@ use Capture::Tiny qw(:all);
 
     use Ubic::Service::Hypnotoad;
     return Ubic::Service::Hypnotoad->new({
+    	cwd => '/path/to/app/', optional, сhange working directory before starting a daemon
         bin => '/usr/bin/hypnotoad', # or 'carton exec hypnotoad', optional, defaults to 'hypnotoad'
         app => '/home/www/mysite.app',
         pid_file => '/var/log/mysite.pid', # optional, defaults to a hypnotoad.pid file lying next to "app"
