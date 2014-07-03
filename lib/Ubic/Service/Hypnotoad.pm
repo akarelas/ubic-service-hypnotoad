@@ -61,7 +61,7 @@ sub new {
 	length $pid_file	or die "missing 'pid_file' parameter in new";
 
 	my %env = %{ $opt->{'env'} // {} };
-
+	
 	return bless {
 		bin => $bin,
 		app => $app,
@@ -69,6 +69,7 @@ sub new {
 		pid_file => $pid_file,
 		start_time => undef,
 		stop_time => undef,
+		cwd => $opt->{cwd},
 	}, $class;
 }
 
@@ -119,6 +120,11 @@ sub start_impl {
 	my $self = shift;
 
 	local %ENV = (%ENV, %{ $self->{'env'} });
+	
+	if (defined $self->{cwd}) {
+		chdir $self->{cwd} or die "chdir to '$self->{cwd}' failed: $!";
+	}
+
 	system(@{$self->{'bin'}}, $self->{'app'});
 	$self->{'start_time'} = time;
 	$self->{'stop_time'} = undef;
@@ -128,6 +134,10 @@ sub start_impl {
 
 sub stop_impl {
 	my $self = shift;
+	
+	if (defined $self->{cwd}) {
+		chdir $self->{cwd} or die "chdir to '$self->{cwd}' failed: $!";
+	}
 
 	local %ENV = (%ENV, %{ $self->{'env'} });
 	my (undef, $stderr) = capture {
