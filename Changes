@@ -1,5 +1,9 @@
 Revision history for Ubic-Service-Hypnotoad
 
+0.2     2014-07-05
+        - 'bin' parameter may be an array, or contain many words
+        - added 'cwd' parameter, to change dir before execution
+
 0.1     2013-11-20
         - Suppressed extra unwanted output in STDOUT, during 'stop'
         - Wrote documenatation
