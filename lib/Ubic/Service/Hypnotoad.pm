@@ -16,9 +16,10 @@ use Capture::Tiny qw(:all);
 
     use Ubic::Service::Hypnotoad;
     return Ubic::Service::Hypnotoad->new({
-        bin => '/usr/bin/hypnotoad', # optional, defaults to 'hypnotoad'
+        bin => '/usr/bin/hypnotoad', # or 'carton exec hypnotoad', or ['carton', 'exec', 'hypnotoad'], optional, defaults to 'hypnotoad'
         app => '/home/www/mysite.app',
         pid_file => '/var/log/mysite.pid', # optional, defaults to a hypnotoad.pid file lying next to "app"
+        cwd => '/path/to/app/', # optional, сhange working directory before starting a daemon
         env => { # optional environment variables
             MOJO_FLAG_A => 1,
             MOJO_CONFIG => '...',
@@ -53,8 +54,8 @@ Send a USR2 signal to the process, to have it do an "automatic hot deployment".
 sub new {
 	my ($class, $opt) = @_;
 
-	my $bin = $opt->{'bin'} // 'hypnotoad';
-	length $bin	or die "missing 'bin' parameter in new";
+	my $bin = [split /\s+/, ($opt->{'bin'} // 'hypnotoad')]		unless ref $opt->{bin} eq 'ARRAY';
+	@$bin	or die "missing 'bin' parameter in new";
 	my $app = $opt->{'app'} // '';
 	length $app	or die "missing 'app' parameter in new";
 	my $pid_file = $opt->{'pid_file'} // dirname($app).'/hypnotoad.pid';
@@ -69,6 +70,7 @@ sub new {
 		pid_file => $pid_file,
 		start_time => undef,
 		stop_time => undef,
+		cwd => $opt->{cwd},
 	}, $class;
 }
 
@@ -119,7 +121,12 @@ sub start_impl {
 	my $self = shift;
 
 	local %ENV = (%ENV, %{ $self->{'env'} });
-	system($self->{'bin'}, $self->{'app'});
+
+	if (defined $self->{cwd}) {
+		chdir $self->{cwd} or die "chdir to '$self->{cwd}' failed: $!";
+	}
+
+	system(@{$self->{'bin'}}, $self->{'app'});
 	$self->{'start_time'} = time;
 	$self->{'stop_time'} = undef;
 
@@ -129,9 +136,13 @@ sub start_impl {
 sub stop_impl {
 	my $self = shift;
 
+	if (defined $self->{cwd}) {
+		chdir $self->{cwd} or die "chdir to '$self->{cwd}' failed: $!";
+	}
+
 	local %ENV = (%ENV, %{ $self->{'env'} });
 	my (undef, $stderr) = capture {
-		system($self->{'bin'}, '-s', $self->{'app'});
+		system(@{$self->{'bin'}}, '-s', $self->{'app'});
 	};
 	print $stderr	if length $stderr;
 	$self->{'stop_time'} = time;
