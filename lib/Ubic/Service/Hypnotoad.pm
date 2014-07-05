@@ -19,7 +19,7 @@ use Capture::Tiny qw(:all);
         bin => '/usr/bin/hypnotoad', # or 'carton exec hypnotoad', or ['carton', 'exec', 'hypnotoad'], optional, defaults to 'hypnotoad'
         app => '/home/www/mysite.app',
         pid_file => '/var/log/mysite.pid', # optional, defaults to a hypnotoad.pid file lying next to "app"
-        cwd => '/path/to/app/', # optional, сhange working directory before starting a daemon
+        cwd => '/path/to/app/', # optional, change working directory before starting a daemon
         env => { # optional environment variables
             MOJO_FLAG_A => 1,
             MOJO_CONFIG => '...',

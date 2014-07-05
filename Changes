@@ -1,5 +1,8 @@
 Revision history for Ubic-Service-Hypnotoad
 
+0.2001  2014-07-05
+        Fixed bug in POD documentation
+
 0.2     2014-07-05
         - 'bin' parameter may be an array, or contain many words
         - added 'cwd' parameter, to change dir before execution
