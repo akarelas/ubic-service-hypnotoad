@@ -16,10 +16,10 @@ use Capture::Tiny qw(:all);
 
     use Ubic::Service::Hypnotoad;
     return Ubic::Service::Hypnotoad->new({
-    	cwd => '/path/to/app/', # optional, сhange working directory before starting a daemon
-        bin => '/usr/bin/hypnotoad', # or 'carton exec hypnotoad', optional, defaults to 'hypnotoad'
+        bin => '/usr/bin/hypnotoad', # or 'carton exec hypnotoad', or ['carton', 'exec', 'hypnotoad'], optional, defaults to 'hypnotoad'
         app => '/home/www/mysite.app',
         pid_file => '/var/log/mysite.pid', # optional, defaults to a hypnotoad.pid file lying next to "app"
+        cwd => '/path/to/app/', # optional, сhange working directory before starting a daemon
         env => { # optional environment variables
             MOJO_FLAG_A => 1,
             MOJO_CONFIG => '...',
@@ -54,7 +54,7 @@ Send a USR2 signal to the process, to have it do an "automatic hot deployment".
 sub new {
 	my ($class, $opt) = @_;
 
-	my $bin = [split /\s+/, ($opt->{'bin'} // 'hypnotoad')];
+	my $bin = [split /\s+/, ($opt->{'bin'} // 'hypnotoad')]		unless ref $opt->{bin} eq 'ARRAY';
 	@$bin	or die "missing 'bin' parameter in new";
 	my $app = $opt->{'app'} // '';
 	length $app	or die "missing 'app' parameter in new";
@@ -62,7 +62,7 @@ sub new {
 	length $pid_file	or die "missing 'pid_file' parameter in new";
 
 	my %env = %{ $opt->{'env'} // {} };
-	
+
 	return bless {
 		bin => $bin,
 		app => $app,
@@ -121,7 +121,7 @@ sub start_impl {
 	my $self = shift;
 
 	local %ENV = (%ENV, %{ $self->{'env'} });
-	
+
 	if (defined $self->{cwd}) {
 		chdir $self->{cwd} or die "chdir to '$self->{cwd}' failed: $!";
 	}
@@ -135,7 +135,7 @@ sub start_impl {
 
 sub stop_impl {
 	my $self = shift;
-	
+
 	if (defined $self->{cwd}) {
 		chdir $self->{cwd} or die "chdir to '$self->{cwd}' failed: $!";
 	}
