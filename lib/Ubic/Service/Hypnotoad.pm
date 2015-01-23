@@ -8,6 +8,7 @@ use parent qw(Ubic::Service::Skeleton);
 
 use Ubic::Result qw(result);
 use File::Basename;
+use File::Spec::Functions 'catfile';
 use Time::HiRes qw(time);
 use Capture::Tiny qw(:all);
 
@@ -62,7 +63,7 @@ sub new {
 
 	$opt->{cwd} =~ s|/$|| if $opt->{cwd};
 
-	my $pid_file = $opt->{pid_file} // ($opt->{cwd} ? "$opt->{cwd}/" : '') . dirname($app) . '/hypnotoad.pid';
+	my $pid_file = $opt->{pid_file} // catfile($opt->{cwd} // '', dirname($app), 'hypnotoad.pid');
 	length $pid_file	or die "missing 'pid_file' parameter in new";
 
 	my %env = %{ $opt->{'env'} // {} };
