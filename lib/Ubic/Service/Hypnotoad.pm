@@ -61,7 +61,8 @@ sub new {
 	my $app = $opt->{app} // '';
 	length $app	or die "missing 'app' parameter in new";
 
-	my $pid_file = $opt->{pid_file} // catfile(file_name_is_absolute($app) ? '' : $opt->{cwd} // '', dirname($app), 'hypnotoad.pid');
+	my $pid_file = $opt->{pid_file};
+	$pid_file //= catfile(file_name_is_absolute($app) ? '' : $opt->{cwd} // '', dirname($app), 'hypnotoad.pid');
 	length $pid_file	or die "missing 'pid_file' parameter in new";
 
 	my %env = %{ $opt->{'env'} // {} };
