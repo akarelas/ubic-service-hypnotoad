@@ -15,7 +15,6 @@ my $h = Ubic::Service::Hypnotoad->new({
   cwd => '/home/my/app/'
 });
 
-is $h->{cwd}, '/home/my/app';
 is $h->{pid_file}, '/home/my/app/script/hypnotoad.pid';
 
 $h = Ubic::Service::Hypnotoad->new({
@@ -25,7 +24,6 @@ $h = Ubic::Service::Hypnotoad->new({
   pid_file => '/path/to/pid/file'
 });
 
-is $h->{cwd}, '/home/my/app';
 is $h->{pid_file}, '/path/to/pid/file';
 
 $h = Ubic::Service::Hypnotoad->new({
@@ -33,7 +31,14 @@ $h = Ubic::Service::Hypnotoad->new({
   app => '/home/my/app/script/test'
 });
 
-is $h->{cwd}, undef;
+is $h->{pid_file}, '/home/my/app/script/hypnotoad.pid';
+
+$h = Ubic::Service::Hypnotoad->new({
+  bin => '/usr/bin/hypnotoad',
+  app => '/home/my/app/script/test',
+  cwd => '/home/my/app/'
+});
+
 is $h->{pid_file}, '/home/my/app/script/hypnotoad.pid';
 
 done_testing;

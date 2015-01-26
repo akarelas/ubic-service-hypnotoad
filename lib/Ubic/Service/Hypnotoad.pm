@@ -8,7 +8,7 @@ use parent qw(Ubic::Service::Skeleton);
 
 use Ubic::Result qw(result);
 use File::Basename;
-use File::Spec::Functions 'catfile';
+use File::Spec::Functions qw(catfile file_name_is_absolute);
 use Time::HiRes qw(time);
 use Capture::Tiny qw(:all);
 
@@ -55,15 +55,13 @@ Send a USR2 signal to the process, to have it do an "automatic hot deployment".
 sub new {
 	my ($class, $opt) = @_;
 
-	my $bin = [split /\s+/, ($opt->{bin} // 'hypnotoad')]		unless ref $opt->{bin} eq 'ARRAY';
+	my $bin = [split /\s+/, ($opt->{bin} // 'hypnotoad')]	unless ref $opt->{bin} eq 'ARRAY';
 	@$bin	or die "missing 'bin' parameter in new";
 
 	my $app = $opt->{app} // '';
 	length $app	or die "missing 'app' parameter in new";
 
-	$opt->{cwd} =~ s|/$|| if $opt->{cwd};
-
-	my $pid_file = $opt->{pid_file} // catfile($opt->{cwd} // '', dirname($app), 'hypnotoad.pid');
+	my $pid_file = $opt->{pid_file} // catfile(file_name_is_absolute($app) ? '' : $opt->{cwd} // '', dirname($app), 'hypnotoad.pid');
 	length $pid_file	or die "missing 'pid_file' parameter in new";
 
 	my %env = %{ $opt->{'env'} // {} };
