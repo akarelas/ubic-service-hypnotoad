@@ -24,6 +24,10 @@ use Capture::Tiny qw(:all);
             MOJO_FLAG_A => 1,
             MOJO_CONFIG => '...',
         },
+        wait_status => { # optional wait until status will change state
+            step    => 2 # default 0.1
+            trials  => 4 # default 10
+        }
     });
 
 =head1 DESCRIPTION
@@ -63,6 +67,8 @@ sub new {
 
 	my %env = %{ $opt->{'env'} // {} };
 
+	my $wait_status = _calc_wait_status($opt->{wait_status});
+
 	return bless {
 		bin => $bin,
 		app => $app,
@@ -71,7 +77,22 @@ sub new {
 		start_time => undef,
 		stop_time => undef,
 		cwd => $opt->{cwd},
+		wait_status => $wait_status
 	}, $class;
+}
+
+sub _calc_wait_status {
+	my $wait_status = shift;
+	my $step   = $wait_status->{step} // 0.1;
+	my $trials = $wait_status->{trials} // 10;
+
+	my $time_to_wait = $step * ($trials - 1) * $trials / 2 + 1;
+
+	return {
+		step   => $step,
+		trials => $trials,
+		time_to_wait => $time_to_wait
+	};
 }
 
 sub _read_pid {
@@ -90,7 +111,7 @@ sub status_impl {
 
 	my $pid = $self->_read_pid;
 
-	if ($self->{'start_time'} and $self->{'start_time'} + 5 > time) {
+	if ($self->{'start_time'} and $self->{'start_time'} + $self->{wait_status}{time_to_wait} > time) {
 		return result('broken')		if ! $pid;
 	}
 	$self->{'start_time'} = undef;
@@ -100,7 +121,7 @@ sub status_impl {
 		return result('not running');
 	}
 
-	if ($self->{'stop_time'} and $self->{'stop_time'} + 5 > time) {
+	if ($self->{'stop_time'} and $self->{'stop_time'} + $self->{wait_status}{time_to_wait} > time) {
 		return result('broken');
 	}
 
@@ -160,15 +181,17 @@ sub reload {
 }
 
 sub timeout_options {
+	my $self = shift;
+
 	return {
 		start => {
-			step => 0.1,
-			trials => 10,
+			step => $self->{wait_status}{step},
+			trials => $self->{wait_status}{trials},
 		},
 		stop => {
-			step => 0.1,
-			trials => 10,
-		},
+			step => $self->{wait_status}{step},
+			trials => $self->{wait_status}{trials},
+		}
 	};
 }
 
