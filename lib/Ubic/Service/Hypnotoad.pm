@@ -25,8 +25,8 @@ use Capture::Tiny qw(:all);
             MOJO_CONFIG => '...',
         },
         wait_status => { # optional wait until status will change state
-            step    => 2 # default 0.1
-            trials  => 4 # default 10
+            step    => 2, # default 0.1
+            trials  => 4, # default 10
         }
     });
 
@@ -77,7 +77,7 @@ sub new {
 		start_time => undef,
 		stop_time => undef,
 		cwd => $opt->{cwd},
-		wait_status => $wait_status
+		wait_status => $wait_status,
 	}, $class;
 }
 
@@ -91,7 +91,7 @@ sub _calc_wait_status {
 	return {
 		step   => $step,
 		trials => $trials,
-		time_to_wait => $time_to_wait
+		time_to_wait => $time_to_wait,
 	};
 }
 
