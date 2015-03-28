@@ -10,6 +10,7 @@ use Ubic::Result qw(result);
 use File::Basename;
 use Time::HiRes qw(time);
 use Capture::Tiny qw(:all);
+use File::Spec::Functions qw(catfile file_name_is_absolute);
 
 
 =head1 SYNOPSIS
@@ -58,11 +59,13 @@ Send a USR2 signal to the process, to have it do an "automatic hot deployment".
 sub new {
 	my ($class, $opt) = @_;
 
-	my $bin = [split /\s+/, ($opt->{'bin'} // 'hypnotoad')]		unless ref $opt->{bin} eq 'ARRAY';
+	my $bin = ref $opt->{bin} eq 'ARRAY' ? $opt->{bin} : [grep {length} split /\s+/, ($opt->{'bin'} // 'hypnotoad')];
 	@$bin	or die "missing 'bin' parameter in new";
 	my $app = $opt->{'app'} // '';
 	length $app	or die "missing 'app' parameter in new";
-	my $pid_file = $opt->{'pid_file'} // dirname($app).'/hypnotoad.pid';
+	file_name_is_absolute($app)		or die "The 'app' parameter must be an absolute path";
+	my $pid_file = $opt->{'pid_file'} // catfile(dirname($app), 'hypnotoad.pid');
+	file_name_is_absolute($pid_file)	or die "The 'pid_file' parameter must be an absolute path";
 	length $pid_file	or die "missing 'pid_file' parameter in new";
 
 	my %env = %{ $opt->{'env'} // {} };
@@ -99,7 +102,7 @@ sub _read_pid {
 	my $self = shift;
 
 	return eval {
-		open my $fh, $self->{'pid_file'}	or die;
+		open my $fh, "<", $self->{'pid_file'}	or die;
 		my $pid = (scalar(<$fh>) =~ /(\d+)/g)[0];
 		close $fh;
 		$pid;

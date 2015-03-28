@@ -1,5 +1,11 @@
 Revision history for Ubic-Service-Hypnotoad
 
+0.3005  2015-03-27
+        Improved tests (thanks Logioniz)
+        Fixed bug that disallowed array form of bin parameter
+        Check if pid_file and app paths are absolute
+        Improve security with 3-param form of "open" function
+
 0.3     2015-03-27
         step duration and number of trials are optionally parametrizable
 
