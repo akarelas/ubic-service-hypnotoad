@@ -11,7 +11,7 @@ use File::Basename;
 use Time::HiRes qw(time);
 use Capture::Tiny qw(:all);
 use File::Spec::Functions qw(catfile file_name_is_absolute);
-
+use Carp qw(croak carp);
 
 =head1 SYNOPSIS
 
@@ -55,45 +55,49 @@ Send a USR2 signal to the process, to have it do an "automatic hot deployment".
 
 =cut
 
-
 sub new {
 	my ($class, $opt) = @_;
 
-	my $bin = ref $opt->{bin} eq 'ARRAY' ? $opt->{bin} : [grep {length} split /\s+/, ($opt->{'bin'} // 'hypnotoad')];
-	@$bin	or die "missing 'bin' parameter in new";
-	my $app = $opt->{'app'} // '';
-	length $app	or die "missing 'app' parameter in new";
-	file_name_is_absolute($app)		or die "The 'app' parameter must be an absolute path";
-	my $pid_file = $opt->{'pid_file'} // catfile(dirname($app), 'hypnotoad.pid');
-	file_name_is_absolute($pid_file)	or die "The 'pid_file' parameter must be an absolute path";
-	length $pid_file	or die "missing 'pid_file' parameter in new";
+	my $bin = ref $opt->{bin} eq 'ARRAY'
+	    ? $opt->{bin}
+	    : [grep {length} split /\s+/x, ($opt->{bin} // 'hypnotoad')]
+    ;
+    @$bin or croak "missing 'bin' parameter in new";
 
-	my %env = %{ $opt->{'env'} // {} };
+	my $app = $opt->{app};
+    length $app or croak "missing 'app' parameter in new";
+
+	file_name_is_absolute($app) or croak "The 'app' parameter must be an absolute path";
+	my $pid_file = $opt->{pid_file} // catfile(dirname($app), 'hypnotoad.pid');
+
+	file_name_is_absolute($pid_file) or croak "The 'pid_file' parameter must be an absolute path";
+	length $pid_file or croak "missing 'pid_file' parameter in new";
+
+	my %env = %{ $opt->{env} // {} };
 
 	my $wait_status = _calc_wait_status($opt->{wait_status});
 
 	return bless {
-		bin => $bin,
-		app => $app,
-		env => \%env,
-		pid_file => $pid_file,
-		start_time => undef,
-		stop_time => undef,
-		cwd => $opt->{cwd},
+		bin         => $bin,
+		app         => $app,
+		env         => \%env,
+		pid_file    => $pid_file,
+		start_time  => undef,
+		stop_time   => undef,
+        cwd         => $opt->{cwd},
 		wait_status => $wait_status,
 	}, $class;
 }
 
 sub _calc_wait_status {
-	my $wait_status = shift;
-	my $step   = $wait_status->{step} // 0.1;
-	my $trials = $wait_status->{trials} // 10;
-
+	my $wait_status  = shift;
+	my $step         = $wait_status->{step} // 0.1;
+	my $trials       = $wait_status->{trials} // 10;
 	my $time_to_wait = $step * ($trials - 1) * $trials / 2 + 1;
 
 	return {
-		step   => $step,
-		trials => $trials,
+		step         => $step,
+		trials       => $trials,
 		time_to_wait => $time_to_wait,
 	};
 }
@@ -101,12 +105,15 @@ sub _calc_wait_status {
 sub _read_pid {
 	my $self = shift;
 
-	return eval {
-		open my $fh, "<", $self->{'pid_file'}	or die;
-		my $pid = (scalar(<$fh>) =~ /(\d+)/g)[0];
-		close $fh;
-		$pid;
-	};
+    unless (-e $self->{pid_file}) {
+        return 0;
+    }
+
+    open my $fh, "<", $self->{pid_file} or croak;
+    my $pid = (scalar(<$fh>) =~ /(\d+)/gx)[0];
+    close $fh;
+
+    return $pid;
 }
 
 sub status_impl {
@@ -114,17 +121,17 @@ sub status_impl {
 
 	my $pid = $self->_read_pid;
 
-	if ($self->{'start_time'} and $self->{'start_time'} + $self->{wait_status}{time_to_wait} > time) {
-		return result('broken')		if ! $pid;
+	if ($self->{start_time} and $self->{start_time} - $self->{wait_status}{time_to_wait} > time) {
+		return result('broken') if !$pid;
 	}
-	$self->{'start_time'} = undef;
+	$self->{start_time} = undef;
 
-	if (! $pid) {
-		$self->{'stop_time'} = undef;
+	if (!$pid) {
+		$self->{stop_time} = undef;
 		return result('not running');
 	}
 
-	if ($self->{'stop_time'} and $self->{'stop_time'} + $self->{wait_status}{time_to_wait} > time) {
+	if ($self->{stop_time} and $self->{stop_time} - $self->{wait_status}{time_to_wait} > time) {
 		return result('broken');
 	}
 
@@ -133,10 +140,10 @@ sub status_impl {
 		$i++;
 		$old_pid = $pid;
 		$running = kill 0, $old_pid;
-		$pid = $self->_read_pid		or return result('not running');
-	} until ($pid == $old_pid or $i > 5);
+		$pid     = $self->_read_pid or return result('not running');
+	} while ($pid == $old_pid && $i < 5);
 
-	$pid == $old_pid	or return result('broken');
+	$pid == $old_pid or return result('broken');
 
 	return $running ? result('running', 'pid '.$pid) : result('not running');
 }
@@ -144,15 +151,21 @@ sub status_impl {
 sub start_impl {
 	my $self = shift;
 
-	local %ENV = (%ENV, %{ $self->{'env'} });
-
 	if (defined $self->{cwd}) {
-		chdir $self->{cwd} or die "chdir to '$self->{cwd}' failed: $!";
+		chdir $self->{cwd} or croak "chdir to '$self->{cwd}' failed: $!";
 	}
 
-	system(@{$self->{'bin'}}, $self->{'app'});
-	$self->{'start_time'} = time;
-	$self->{'stop_time'} = undef;
+	local %ENV = (%ENV, %{ $self->{env} });
+	my (undef, $stderr, $exit_status) = capture {
+	    system(@{$self->{bin}}, $self->{app});
+    };
+	if ($exit_status) {
+        carp $stderr if length $stderr;
+        return result('broken');
+    }
+
+	$self->{start_time} = time;
+	$self->{stop_time}  = undef;
 
 	return result('starting');
 }
@@ -161,16 +174,21 @@ sub stop_impl {
 	my $self = shift;
 
 	if (defined $self->{cwd}) {
-		chdir $self->{cwd} or die "chdir to '$self->{cwd}' failed: $!";
+		chdir $self->{cwd} or croak "chdir to '$self->{cwd}' failed: $!";
 	}
 
-	local %ENV = (%ENV, %{ $self->{'env'} });
-	my (undef, $stderr) = capture {
+	local %ENV = (%ENV, %{ $self->{env} });
+	my (undef, $stderr, $exit_status) = capture {
 		system(@{$self->{'bin'}}, '-s', $self->{'app'});
 	};
-	print $stderr	if length $stderr;
-	$self->{'stop_time'} = time;
-	$self->{'start_time'} = undef;
+	if ($exit_status) {
+        carp $stderr if length $stderr;
+        return result('broken');
+    }
+
+	carp $stderr if length $stderr;
+	$self->{stop_time}  = time;
+	$self->{start_time} = undef;
 
 	return result('stopping');
 }
@@ -178,7 +196,7 @@ sub stop_impl {
 sub reload {
 	my $self = shift;
 
-	my $pid = $self->_read_pid	or return 'not running';
+    my $pid = $self->_read_pid or return 'not running';
 	my $ret = kill "USR2", $pid;
 	return $ret ? 'reloaded' : 'not running';
 }
@@ -206,8 +224,5 @@ I will be notified, and then you'll automatically be notified of progress on
 your bug as I make changes.
 
 =cut
-
-
-
 
 1;
