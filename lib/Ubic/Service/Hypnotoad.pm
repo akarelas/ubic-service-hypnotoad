@@ -28,7 +28,13 @@ use Carp qw(croak carp);
         wait_status => { # optional wait until status will change state
             step    => 2, # default 0.1
             trials  => 4, # default 10
-        }
+        },
+        custom_commands => {
+            ping => {
+                my $self = shift; # Ubic::Service::Hypnotoad
+                # any code
+            }
+        },
     });
 
 =head1 DESCRIPTION
@@ -52,6 +58,10 @@ Stop service
 =head2 reload
 
 Send a USR2 signal to the process, to have it do an "automatic hot deployment".
+
+=head2 custom_action
+
+Service specified commands
 
 =cut
 
@@ -77,15 +87,22 @@ sub new {
 
 	my $wait_status = _calc_wait_status($opt->{wait_status});
 
+    if ($opt->{custom_commands}) {
+        for (keys %{$opt->{custom_commands}}) {
+            ref($opt->{custom_commands}{$_}) eq 'CODE' or croak "Callback expected at custom command $_";
+        }
+    }
+
 	return bless {
-		bin         => $bin,
-		app         => $app,
-		env         => \%env,
-		pid_file    => $pid_file,
-		start_time  => undef,
-		stop_time   => undef,
-        cwd         => $opt->{cwd},
-		wait_status => $wait_status,
+		env             => \%env,
+		bin             => $bin,
+		app             => $app,
+		pid_file        => $pid_file,
+		wait_status     => $wait_status,
+		start_time      => undef,
+		stop_time       => undef,
+        cwd             => $opt->{cwd},
+		custom_commands => $opt->{custom_commands},
 	}, $class;
 }
 
@@ -191,6 +208,19 @@ sub stop_impl {
 	$self->{start_time} = undef;
 
 	return result('stopping');
+}
+
+sub custom_commands {
+    my $self = shift;
+    return keys %{$self->{custom_commands}};
+}
+
+sub do_custom_command {
+    my ($self, $command) = @_;
+    unless (exists $self->{custom_commands}{$command}) {
+        croak "Command '$command' not implemented";
+    }
+    $self->{custom_commands}{$command}->($self);
 }
 
 sub reload {
