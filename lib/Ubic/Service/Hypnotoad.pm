@@ -66,42 +66,44 @@ Service specified commands
 =cut
 
 sub new {
-	my ($class, $opt) = @_;
+	my ( $class, $opt ) = @_;
 
-	my $bin = ref $opt->{bin} eq 'ARRAY'
-	    ? $opt->{bin}
-	    : [grep {length} split /\s+/x, ($opt->{bin} // 'hypnotoad')]
-    ;
-    @$bin or croak "missing 'bin' parameter in new";
+	my $bin =
+	  ref $opt->{bin} eq 'ARRAY'
+	  ? $opt->{bin}
+	  : [ grep { length } split /\s+/x, ( $opt->{bin} // 'hypnotoad' ) ];
+	@$bin or croak "missing 'bin' parameter in new";
 
 	my $app = $opt->{app};
-    length $app or croak "missing 'app' parameter in new";
+	length $app or croak "missing 'app' parameter in new";
 
-	file_name_is_absolute($app) or croak "The 'app' parameter must be an absolute path";
-	my $pid_file = $opt->{pid_file} // catfile(dirname($app), 'hypnotoad.pid');
+	file_name_is_absolute($app)
+	  or croak "The 'app' parameter must be an absolute path";
+	my $pid_file = $opt->{pid_file}
+	  // catfile( dirname($app), 'hypnotoad.pid' );
 
-	file_name_is_absolute($pid_file) or croak "The 'pid_file' parameter must be an absolute path";
+	file_name_is_absolute($pid_file)
+	  or croak "The 'pid_file' parameter must be an absolute path";
 	length $pid_file or croak "missing 'pid_file' parameter in new";
 
 	my %env = %{ $opt->{env} // {} };
 
-	my $wait_status = _calc_wait_status($opt->{wait_status});
+	my $wait_status = _calc_wait_status( $opt->{wait_status} );
 
-    if ($opt->{custom_commands}) {
-        for (keys %{$opt->{custom_commands}}) {
-            ref($opt->{custom_commands}{$_}) eq 'CODE' or croak "Callback expected at custom command $_";
-        }
-    }
+	if ( $opt->{custom_commands} ) {
+		for ( keys %{ $opt->{custom_commands} } ) {
+			ref( $opt->{custom_commands}{$_} ) eq 'CODE'
+			  or croak "Callback expected at custom command $_";
+		}
+	}
 
 	return bless {
-		env             => \%env,
 		bin             => $bin,
 		app             => $app,
+		env             => \%env,
 		pid_file        => $pid_file,
+		cwd             => $opt->{cwd},
 		wait_status     => $wait_status,
-		start_time      => undef,
-		stop_time       => undef,
-        cwd             => $opt->{cwd},
 		custom_commands => $opt->{custom_commands},
 	}, $class;
 }
@@ -110,79 +112,66 @@ sub _calc_wait_status {
 	my $wait_status  = shift;
 	my $step         = $wait_status->{step} // 0.1;
 	my $trials       = $wait_status->{trials} // 10;
-	my $time_to_wait = $step * ($trials - 1) * $trials / 2 + 1;
+	my $time_to_wait = $step * ( $trials - 1 ) * $trials / 2 + 1;
 
-	return {
-		step         => $step,
-		trials       => $trials,
-		time_to_wait => $time_to_wait,
+	return +{
+		step   => $step,
+		trials => $trials,
 	};
 }
 
 sub _read_pid {
 	my $self = shift;
 
-    unless (-e $self->{pid_file}) {
-        return 0;
-    }
+	unless ( -e $self->{pid_file} ) {
+		return 0;
+	}
 
-    open my $fh, "<", $self->{pid_file} or croak;
-    my $pid = (scalar(<$fh>) =~ /(\d+)/gx)[0];
-    close $fh;
+	open my $fh, "<", $self->{pid_file} or croak;
+	my $pid = ( scalar(<$fh>) =~ /(\d+)/gx )[0];
+	close $fh;
 
-    return $pid;
+	return $pid;
 }
 
 sub status_impl {
 	my $self = shift;
+	my $pid  = $self->_read_pid;
 
-	my $pid = $self->_read_pid;
-
-	if ($self->{start_time} and $self->{start_time} - $self->{wait_status}{time_to_wait} > time) {
-		return result('broken') if !$pid;
-	}
-	$self->{start_time} = undef;
-
-	if (!$pid) {
-		$self->{stop_time} = undef;
+	if ( !$pid ) {
 		return result('not running');
 	}
 
-	if ($self->{stop_time} and $self->{stop_time} - $self->{wait_status}{time_to_wait} > time) {
-		return result('broken');
-	}
-
-	my ($i, $running, $old_pid) = (0);
+	my ( $i, $running, $old_pid ) = (0);
 	do {
 		$i++;
 		$old_pid = $pid;
 		$running = kill 0, $old_pid;
 		$pid     = $self->_read_pid or return result('not running');
-	} while ($pid == $old_pid && $i < 5);
+	} while ( $pid == $old_pid && $i < 5 );
 
 	$pid == $old_pid or return result('broken');
 
-	return $running ? result('running', 'pid '.$pid) : result('not running');
+	return $running
+	  ? result( 'running', 'pid ' . $pid )
+	  : result('not running');
 }
 
 sub start_impl {
 	my $self = shift;
 
-	if (defined $self->{cwd}) {
+	if ( defined $self->{cwd} ) {
 		chdir $self->{cwd} or croak "chdir to '$self->{cwd}' failed: $!";
 	}
 
-	local %ENV = (%ENV, %{ $self->{env} });
-	my (undef, $stderr, $exit_status) = capture {
-	    system(@{$self->{bin}}, $self->{app});
-    };
+	local %ENV = ( %ENV, %{ $self->{env} } );
+	my ( undef, $stderr, $exit_status ) = capture {
+		system( @{ $self->{bin} }, $self->{app} );
+	};
 	if ($exit_status) {
-        carp $stderr if length $stderr;
-        return result('broken');
-    }
-
-	$self->{start_time} = time;
-	$self->{stop_time}  = undef;
+		carp $stderr if length $stderr;
+		return result('broken');
+	}
 
 	return result('starting');
 }
@@ -190,43 +179,41 @@ sub start_impl {
 sub stop_impl {
 	my $self = shift;
 
-	if (defined $self->{cwd}) {
+	if ( defined $self->{cwd} ) {
 		chdir $self->{cwd} or croak "chdir to '$self->{cwd}' failed: $!";
 	}
 
-	local %ENV = (%ENV, %{ $self->{env} });
-	my (undef, $stderr, $exit_status) = capture {
-		system(@{$self->{'bin'}}, '-s', $self->{'app'});
+	local %ENV = ( %ENV, %{ $self->{env} } );
+	my ( undef, $stderr, $exit_status ) = capture {
+		system( @{ $self->{'bin'} }, '-s', $self->{'app'} );
 	};
 	if ($exit_status) {
-        carp $stderr if length $stderr;
-        return result('broken');
-    }
+		carp $stderr if length $stderr;
+		return result('broken');
+	}
 
 	carp $stderr if length $stderr;
-	$self->{stop_time}  = time;
-	$self->{start_time} = undef;
 
 	return result('stopping');
 }
 
 sub custom_commands {
-    my $self = shift;
-    return keys %{$self->{custom_commands}};
+	my $self = shift;
+	return keys %{ $self->{custom_commands} };
 }
 
 sub do_custom_command {
-    my ($self, $command) = @_;
-    unless (exists $self->{custom_commands}{$command}) {
-        croak "Command '$command' not implemented";
-    }
-    $self->{custom_commands}{$command}->($self);
+	my ( $self, $command ) = @_;
+	unless ( exists $self->{custom_commands}{$command} ) {
+		croak "Command '$command' not implemented";
+	}
+	return $self->{custom_commands}{$command}->($self);
 }
 
 sub reload {
 	my $self = shift;
 
-    my $pid = $self->_read_pid or return 'not running';
+	my $pid = $self->_read_pid or return 'not running';
 	my $ret = kill "USR2", $pid;
 	return $ret ? 'reloaded' : 'not running';
 }
@@ -236,11 +223,11 @@ sub timeout_options {
 
 	return {
 		start => {
-			step => $self->{wait_status}{step},
+			step   => $self->{wait_status}{step},
 			trials => $self->{wait_status}{trials},
 		},
 		stop => {
-			step => $self->{wait_status}{step},
+			step   => $self->{wait_status}{step},
 			trials => $self->{wait_status}{trials},
 		}
 	};
